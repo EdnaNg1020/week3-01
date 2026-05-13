@@ -260,6 +260,32 @@
 
     <!-- JAVASCRIPT -->
     <script>
+        // --- GOOGLE SHEET SYNC CONFIGURATION ---
+        // 請將下方 URL 替換為您部署的 Google Apps Script 網頁應用程式網址
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxEPtNvyvmfi6kkXCtrBuzNuWYtIRa12khkLSaUjgumlUq2pdX7qhB2cf_7U5VOUGxY/exec";
+
+        // 非同步同步函數 (僅發送，不等待結果)
+        function syncToSheet(payload) {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
+                console.warn("syncToSheet: APPS_SCRIPT_URL 尚未設定，跳過同步");
+                return;
+            }
+            fetch(APPS_SCRIPT_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(payload)
+            })
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.status !== "created" && data.status !== "updated" && data.status !== "deleted") {
+                    console.warn("syncToSheet 回應異常:", data);
+                }
+            })
+            .catch(err => {
+                console.warn("syncToSheet 失敗 (網路或伺服器錯誤):", err);
+            });
+        }
+
         // --- CONSTANTS ---
         const LOCAL_STORAGE_KEY = "records";
         const CATEGORIES = ["全部", "書籍", "3C產品", "生活用品", "服飾", "其他"];
@@ -270,20 +296,10 @@
         let searchQuery = "";
         let base64Image = "";
 
-        // --- CORE FUNCTIONS (Rules 6) ---
+        // --- CORE FUNCTIONS ---
 
         /**
-         * 1. 儲存資料
-         */
-        function saveData(newRecord) {
-            const records = loadData();
-            records.unshift(newRecord); // Add to beginning
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
-            renderList();
-        }
-
-        /**
-         * 2. 讀取資料
+         * 讀取資料 from localStorage
          */
         function loadData() {
             try {
@@ -294,12 +310,87 @@
         }
 
         /**
-         * 3. 渲染列表
+         * 儲存資料到 localStorage，不觸發同步 (內部用)
+         */
+        function persistToLocalStorage(records) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
+            renderList();
+        }
+
+        /**
+         * 新增一筆記錄 (localStorage + 同步到 Sheet)
+         */
+        function addRecord(newRecord) {
+            const records = loadData();
+            records.unshift(newRecord);
+            persistToLocalStorage(records);
+            // 同步到 Google Sheet (非同步，不影響 UI)
+            syncToSheet({ action: "create", record: newRecord });
+        }
+
+        // --- 原本 saveData 改名為 addRecord，為相容性保留舊名稱但指向新函數
+        function saveData(newRecord) {
+            addRecord(newRecord);
+        }
+
+        /**
+         * 更新單筆記錄的特定欄位 (localStorage + 同步)
+         */
+        function updateRecordField(id, changes) {
+            const records = loadData();
+            const item = records.find(r => r.id === id);
+            if (!item) return;
+            Object.assign(item, changes);
+            persistToLocalStorage(records);
+            // 同步到 Sheet
+            syncToSheet({ action: "update", id: id, changes: changes });
+        }
+
+        /**
+         * 刪除記錄 (localStorage + 同步)
+         */
+        function deleteRecordById(id) {
+            const records = loadData();
+            const filtered = records.filter(r => r.id !== id);
+            persistToLocalStorage(filtered);
+            syncToSheet({ action: "delete", id: id });
+        }
+
+        // --- 相容原本的 deleteRecord 函數簽名 (原本接收 id, event)
+        function deleteRecord(id, event) {
+            if (event) event.preventDefault();
+            if (!confirm("確定要刪除這筆寶物嗎？")) return;
+            deleteRecordById(id);
+        }
+
+        // --- 跟星號、狀態相關的函數，改用 updateRecordField ---
+        function toggleStar(id, event) {
+            if (event) event.preventDefault();
+            const records = loadData();
+            const item = records.find(r => r.id === id);
+            if (!item) return;
+            const newStarStatus = item.star_status === 'starred' ? 'unstarred' : 'starred';
+            updateRecordField(id, { star_status: newStarStatus });
+        }
+
+        function toggleItemStatus(id, event) {
+            if (event) event.preventDefault();
+            const records = loadData();
+            const item = records.find(r => r.id === id);
+            if (!item) return;
+            const newStatus = item.status === 'active' ? 'sold' : 'active';
+            updateRecordField(id, { status: newStatus });
+        }
+
+        // --- 其餘函數 (renderList, 過濾等) 完全不動，僅更新呼叫的儲存函數 ---
+        // --- 但 renderList 有一處呼叫 deleteRecord，已處理 ---
+
+        /**
+         * 渲染列表 (與原本完全相同，但內部使用的 localStorage 資料仍由 persistToLocalStorage 維護)
          */
         function renderList() {
             const records = loadData();
             
-            // Filtering
             let filtered = records.filter(item => {
                 const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                      item.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -313,14 +404,12 @@
                 return matchesSearch && matchesCategory && matchesStatus;
             });
 
-            // Sorting: Starred first, then newest
             filtered.sort((a, b) => {
                 if (a.star_status === 'starred' && b.star_status !== 'starred') return -1;
                 if (a.star_status !== 'starred' && b.star_status === 'starred') return 1;
                 return new Date(b.createdAt) - new Date(a.createdAt);
             });
 
-            // Stats update
             const stats = {
                 active: records.filter(r => r.status === 'active').length,
                 sold: records.filter(r => r.status === 'sold').length,
@@ -345,11 +434,10 @@
                 });
             }
 
-            lucide.createIcons(); // Refresh Lucide icons
+            lucide.createIcons();
         }
 
-        // --- UI HELPERS ---
-
+        // --- UI 輔助函數 (createItemCard 不變，但按鈕 onclick 已指向新的全域函數) ---
         function createItemCard(item) {
             const div = document.createElement('div');
             div.className = "sticker-card flex flex-col p-3 animate-fade";
@@ -400,8 +488,7 @@
             return div;
         }
 
-        // --- EVENT HANDLERS ---
-
+        // --- 其餘事件處理函數 (與原本相同，但部分已修改內部儲存邏輯) ---
         function toggleModal(show) {
             const modal = document.getElementById('postModal');
             modal.style.display = show ? 'flex' : 'none';
@@ -430,37 +517,6 @@
             renderList();
         }
 
-        function toggleStar(id, event) {
-            event.preventDefault();
-            const records = loadData();
-            const item = records.find(r => r.id === id);
-            if (item) {
-                item.star_status = item.star_status === 'starred' ? 'unstarred' : 'starred';
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
-                renderList();
-            }
-        }
-
-        function toggleItemStatus(id, event) {
-            event.preventDefault();
-            const records = loadData();
-            const item = records.find(r => r.id === id);
-            if (item) {
-                item.status = item.status === 'active' ? 'sold' : 'active';
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
-                renderList();
-            }
-        }
-
-        function deleteRecord(id, event) {
-            event.preventDefault();
-            if(!confirm("確定要刪除這筆寶物嗎？")) return;
-            const records = loadData();
-            const filtered = records.filter(r => r.id !== id);
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
-            renderList();
-        }
-
         function resetFilters() {
             currentCategory = "全部";
             currentStatus = "全部";
@@ -471,8 +527,7 @@
             renderList();
         }
 
-        // --- INITIALIZATION ---
-
+        // --- 初始化 UI Helper 函數 ---
         function renderCategoryTabs() {
             const tabs = document.getElementById('categoryTabs');
             tabs.innerHTML = CATEGORIES.map(cat => `
@@ -511,9 +566,9 @@
         document.getElementById('postForm').onsubmit = function(e) {
             e.preventDefault();
             const record = {
-                id: Date.now() + "_" + Math.random().toString(36).slice(2,6), // Rule 4
-                createdAt: new Date().toISOString(), // Rule 4
-                status: "active", // Rule 4
+                id: Date.now() + "_" + Math.random().toString(36).slice(2,6),
+                createdAt: new Date().toISOString(),
+                status: "active",
                 star_status: "unstarred",
                 title: document.getElementById('title').value,
                 description: document.getElementById('description').value,
@@ -522,7 +577,7 @@
                 nickname: document.getElementById('nickname').value,
                 imageUrl: base64Image
             };
-            saveData(record);
+            addRecord(record);
             toggleModal(false);
         };
 
