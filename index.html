@@ -1,45 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二手易 - 復古日系交換平台</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru:wght@400;500;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --retro-paper: #f4f1ea;
+            --retro-red: #bc4749;
+            --retro-navy: #1d3557;
+            --retro-mustard: #e9c46a;
+            --retro-green: #6a994e;
+        }
+
+        body {
+            background-color: var(--retro-paper);
+            font-family: 'Kiwi Maru', serif;
+            color: var(--retro-navy);
+            background-image: 
+                radial-gradient(rgba(29, 53, 87, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .brush-text {
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+
+        .font-hand {
+            font-family: 'Kiwi Maru', serif;
+            font-weight: 700;
+        }
+
+        .sticker-card {
+            background: white;
+            border: 4px solid white;
+            box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sticker-card:hover {
+            transform: translateY(-5px) rotate(-1deg);
+            box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Modal Overlay */
+        #postModal {
+            display: none;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+
+        .input-retro {
+            background: var(--retro-paper);
+            border: 4px solid white;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-retro:focus {
+            border-color: var(--retro-mustard);
+            box-shadow: 0 0 0 4px rgba(233, 196, 106, 0.2);
+        }
+
+        .btn-retro {
+            padding: 0.75rem 1.5rem;
+            border: 4px solid white;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+
+        .btn-retro:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary { background-color: var(--retro-red); color: white; }
+        .btn-secondary { background-color: var(--retro-navy); color: white; }
+        
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 2px solid white;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-50 bg-[#f4f1ea]/90 backdrop-blur-md border-b-4 border-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-center justify-between py-4 gap-4">
+                <div class="flex items-center gap-6 flex-1">
+                    <h1 class="text-4xl cursor-pointer shrink-0 brush-text hover:scale-105 transition-transform" onclick="resetFilters()">
+                        二手易
+                    </h1>
+                    
+                    <div class="relative flex-1 max-w-md">
+                        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                        <input
+                            id="searchInput"
+                            type="text"
+                            placeholder="搜尋寶物..."
+                            class="w-full pl-12 pr-4 py-3 bg-white border-4 border-white rounded-xl outline-none shadow-sm font-hand"
+                        >
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <button id="openModalBtn" class="btn-retro btn-primary flex items-center gap-2">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        <span>發佈物品</span>
+                    </button>
+
+                    <div class="relative group">
+                        <div id="userProfileBtn" class="w-12 h-12 rounded-xl border-4 border-white shadow-md overflow-hidden bg-white cursor-pointer ring-2 ring-slate-100">
+                            <img id="userAvatar" src="https://api.dicebear.com/7.x/adventurer/svg?seed=Lucky" alt="Avatar" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CATEGORIES -->
+            <div class="flex items-center gap-2 pb-3 overflow-x-auto no-scrollbar" id="categoryTabs">
+                <!-- JS inserts tabs here -->
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- STATUS FILTERS & STATS -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div class="flex flex-wrap items-center gap-3" id="statusFilters">
+                <!-- JS inserts buttons here -->
+            </div>
+
+            <div class="flex items-center gap-6 px-6 py-3 bg-white border-4 border-white rounded-2xl shadow-sm font-hand">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">待售 Active</span>
+                    <span id="statActive" class="text-xl font-bold">0</span>
+                </div>
+                <div class="w-1 h-8 bg-[#f4f1ea] rounded-full"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">已結 Done</span>
+                    <span id="statDone" class="text-xl font-bold text-[#bc4749]">0</span>
+                </div>
+                <div class="w-1 h-8 bg-[#f4f1ea] rounded-full"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">總計 Total</span>
+                    <span id="statTotal" class="text-xl font-bold">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ITEMS LIST -->
+        <div id="itemList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- JS inserts cards here -->
+        </div>
+
+        <!-- EMPTY STATE -->
+        <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center">
+            <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-md mb-6">
+                <i data-lucide="package-search" class="w-10 h-10 text-slate-300"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-2">找不到相關物品</h3>
+            <p class="text-slate-500">試試更換關鍵字或分類</p>
+        </div>
+    </main>
+
+    <!-- POST MODAL -->
+    <div id="postModal" class="fixed inset-0 z-[100] p-4 flex items-center justify-center">
+        <div class="relative sticker-card w-full max-w-2xl bg-white overflow-hidden animate-fade">
+            <div class="flex items-center justify-between p-6 border-b-4 border-[#f4f1ea] bg-[#f4f1ea]/30">
+                <h2 class="text-2xl font-bold brush-text">發佈新寶物 ✨</h2>
+                <button id="closeModalBtn" class="p-2 hover:bg-white rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <form id="postForm" class="p-6 max-h-[80vh] overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <label class="block text-lg font-bold font-hand">物品圖片 📸</label>
+                        <div id="dropZone" class="relative aspect-square rounded-2xl border-4 border-dashed border-[#f4f1ea] bg-[#f4f1ea]/20 flex flex-col items-center justify-center gap-3 overflow-hidden transition-all hover:border-[#e9c46a]">
+                            <img id="imagePreview" class="absolute inset-0 w-full h-full object-cover hidden" src="" alt="Preview">
+                            <div id="uploadPrompt" class="text-center p-4">
+                                <i data-lucide="upload" class="w-8 h-8 text-[#bc4749] mx-auto mb-2"></i>
+                                <p class="text-xs font-bold font-hand">點擊上傳圖片</p>
+                            </div>
+                            <input type="file" id="fileInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-1">物品名稱</label>
+                            <input type="text" id="title" required class="w-full input-retro font-hand" placeholder="例如：二手筆電">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1">分類</label>
+                            <select id="category" class="w-full input-retro font-hand">
+                                <option>書籍</option>
+                                <option>3C產品</option>
+                                <option>生活用品</option>
+                                <option>服飾</option>
+                                <option>其他</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1">價格/交換</label>
+                            <input type="text" id="price" required class="w-full input-retro font-hand" placeholder="例如：$500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1">您的暱稱</label>
+                            <input type="text" id="nickname" required class="w-full input-retro font-hand" value="小手">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <label class="block text-sm font-bold mb-1">物品描述</label>
+                    <textarea id="description" required rows="3" class="w-full input-retro font-hand resize-none" placeholder="描述新舊程度..."></textarea>
+                </div>
+
+                <div class="mt-8 flex gap-4">
+                    <button type="button" id="cancelModalBtn" class="flex-1 btn-retro bg-white text-slate-500">取消</button>
+                    <button type="submit" class="flex-1 btn-retro btn-primary">立即發佈</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- JAVASCRIPT -->
     <script>
-        // --- GOOGLE SHEET SYNC CONFIGURATION ---
-        // ⚠️ 請務必替換為您「剛剛重新部署」產生的最新 URL
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyDgz8qN3xTjLPd6PF8LsUMt4Xh3o2Us2HXxPmfcw7zmgVzl-ezpngZaGVUrFm4_cSx/exec";
+        // --- 1. 設定區 ---
+        // ⚠️ 請務必替換為您「剛剛重新部署」產生的最新 GAS URL
+        const APPS_SCRIPT_URL = "PASTE_YOUR_NEW_APPS_SCRIPT_URL_HERE"; 
 
-        // 非同步同步函數
-        function syncToSheet(payload) {
-            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PASTE_YOUR")) {
-                console.warn("syncToSheet: APPS_SCRIPT_URL 尚未設定，跳過同步");
-                return;
-            }
-            fetch(APPS_SCRIPT_URL, {
-                method: "POST",
-                headers: { "Content-Type": "text/plain" }, // 避開 CORS OPTIONS 預檢
-                body: JSON.stringify(payload)
-            })
-            .then(resp => resp.json())
-            .then(data => {
-                if (data.status !== "created" && data.status !== "updated" && data.status !== "deleted") {
-                    console.warn("syncToSheet 回應異常:", data);
-                }
-            })
-            .catch(err => console.warn("syncToSheet 失敗:", err));
-        }
-
-        // 從 Apps Script 載入所有記錄
-        async function loadFromSheet() {
-            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PASTE_YOUR")) return [];
-            try {
-                const response = await fetch(APPS_SCRIPT_URL);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                if (data.status === "ok" && Array.isArray(data.records)) return data.records;
-                return [];
-            } catch (err) {
-                console.error("從 Sheet 載入失敗:", err);
-                return [];
-            }
-        }
-
-        // --- CONSTANTS ---
         const LOCAL_STORAGE_KEY = "records";
         const CATEGORIES = ["全部", "書籍", "3C產品", "生活用品", "服飾", "其他"];
         const STATUS_FILTERS = ["全部", "待售", "已出售", "收藏"];
@@ -49,7 +272,29 @@
         let searchQuery = "";
         let base64Image = "";
 
-        // --- CORE FUNCTIONS ---
+        // --- 2. 核心函數 ---
+        function syncToSheet(payload) {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PASTE_YOUR")) return;
+            fetch(APPS_SCRIPT_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" }, // 避開 CORS OPTIONS 預檢
+                body: JSON.stringify(payload)
+            }).catch(err => console.warn("syncToSheet 失敗:", err));
+        }
+
+        async function loadFromSheet() {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PASTE_YOUR")) return [];
+            try {
+                const response = await fetch(APPS_SCRIPT_URL);
+                const data = await response.json();
+                if (data.status === "ok" && Array.isArray(data.records)) return data.records;
+                return [];
+            } catch (err) {
+                console.error("從 Sheet 載入失敗:", err);
+                return [];
+            }
+        }
+
         function loadData() {
             try { return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]"); } 
             catch (e) { return []; }
@@ -83,44 +328,17 @@
             syncToSheet({ action: "delete", id: id });
         }
 
-        function deleteRecord(id, event) {
-            if (event) event.preventDefault();
-            if (!confirm("確定要刪除這筆寶物嗎？")) return;
-            deleteRecordById(id);
-        }
-
-        function toggleStar(id, event) {
-            if (event) event.preventDefault();
-            const records = loadData();
-            const item = records.find(r => r.id === id);
-            if (!item) return;
-            const newStarStatus = item.star_status === 'starred' ? 'unstarred' : 'starred';
-            updateRecordField(id, { star_status: newStarStatus });
-        }
-
-        function toggleItemStatus(id, event) {
-            if (event) event.preventDefault();
-            const records = loadData();
-            const item = records.find(r => r.id === id);
-            if (!item) return;
-            const newStatus = item.status === 'active' ? 'sold' : 'active';
-            updateRecordField(id, { status: newStatus });
-        }
-
-        // --- RENDER ---
+        // --- 3. 渲染邏輯 ---
         function renderList() {
             const records = loadData();
-            
             let filtered = records.filter(item => {
                 const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                      item.description.toLowerCase().includes(searchQuery.toLowerCase());
                 const matchesCategory = currentCategory === "全部" || item.category === currentCategory;
-                
                 let matchesStatus = true;
                 if (currentStatus === "待售") matchesStatus = item.status === "active";
                 else if (currentStatus === "已出售") matchesStatus = item.status === "sold";
                 else if (currentStatus === "收藏") matchesStatus = item.star_status === "starred";
-
                 return matchesSearch && matchesCategory && matchesStatus;
             });
 
@@ -141,20 +359,15 @@
 
             const listEl = document.getElementById('itemList');
             const emptyEl = document.getElementById('emptyState');
-            
             listEl.innerHTML = "";
             
             if (filtered.length === 0) {
                 emptyEl.classList.remove('hidden');
             } else {
                 emptyEl.classList.add('hidden');
-                filtered.forEach(item => {
-                    const card = createItemCard(item);
-                    listEl.appendChild(card);
-                });
+                filtered.forEach(item => listEl.appendChild(createItemCard(item)));
             }
-
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         function createItemCard(item) {
@@ -166,18 +379,10 @@
             div.innerHTML = `
                 <div class="relative aspect-square overflow-hidden rounded-xl border-2 border-slate-50 mb-3 bg-slate-50">
                     <img src="${item.imageUrl || 'https://images.unsplash.com/photo-1540317580384-e5d43616b9aa?q=80&w=300'}" class="w-full h-full object-cover transition-transform hover:scale-110 ${isSold ? 'grayscale opacity-70' : ''}">
-                    ${isSold ? `
-                        <div class="absolute inset-0 flex items-center justify-center bg-black/10">
-                            <span class="px-4 py-2 bg-[#bc4749] text-white font-hand border-2 border-white rounded-lg shadow-lg rotate-[-12deg]">已出售 ✨</span>
-                        </div>
-                    ` : ''}
-                    <div class="absolute top-2 left-2">
-                        <span class="px-2 py-0.5 bg-[#e9c46a] text-[#1d3557] text-[10px] font-bold rounded shadow-sm border border-white">${item.category}</span>
-                    </div>
+                    ${isSold ? `<div class="absolute inset-0 flex items-center justify-center bg-black/10"><span class="px-4 py-2 bg-[#bc4749] text-white font-hand border-2 border-white rounded-lg shadow-lg rotate-[-12deg]">已出售 ✨</span></div>` : ''}
+                    <div class="absolute top-2 left-2"><span class="px-2 py-0.5 bg-[#e9c46a] text-[#1d3557] text-[10px] font-bold rounded shadow-sm border border-white">${item.category}</span></div>
                     <div class="absolute top-2 right-2">
-                        <button onclick="toggleStar('${item.id}', event)" class="p-2 rounded-lg border-2 border-white shadow-sm transition-all ${isStarred ? 'bg-yellow-400 text-white' : 'bg-white/80 text-slate-300'}">
-                            ${isStarred ? '🌟' : '⭐'}
-                        </button>
+                        <button onclick="toggleStar('${item.id}', event)" class="p-2 rounded-lg border-2 border-white shadow-sm transition-all ${isStarred ? 'bg-yellow-400 text-white' : 'bg-white/80 text-slate-300'}">${isStarred ? '🌟' : '⭐'}</button>
                     </div>
                 </div>
                 <div class="px-2 pb-2">
@@ -188,18 +393,12 @@
                     <p class="text-[10px] text-slate-500 line-clamp-2 h-8 overflow-hidden mb-3">${item.description}</p>
                     <div class="flex items-center justify-between pt-3 border-t-2 border-[#f4f1ea]">
                         <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded bg-slate-100 overflow-hidden border">
-                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${item.nickname}" class="w-full h-full">
-                            </div>
+                            <div class="w-6 h-6 rounded bg-slate-100 overflow-hidden border"><img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${item.nickname}" class="w-full h-full"></div>
                             <span class="text-[10px] font-bold font-hand">${item.nickname}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <button onclick="toggleItemStatus('${item.id}', event)" class="p-1 hover:text-green-600">
-                                <i data-lucide="${isSold ? 'rotate-ccw' : 'check-circle-2'}" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="deleteRecord('${item.id}', event)" class="p-1 hover:text-[#bc4749]">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
+                            <button onclick="toggleItemStatus('${item.id}', event)" class="p-1 hover:text-green-600"><i data-lucide="${isSold ? 'rotate-ccw' : 'check-circle-2'}" class="w-4 h-4"></i></button>
+                            <button onclick="deleteRecord('${item.id}', event)" class="p-1 hover:text-[#bc4749]"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                         </div>
                     </div>
                 </div>
@@ -207,8 +406,22 @@
             return div;
         }
 
-        // --- UI HELPERS ---
-        function toggleModal(show) {
+        function renderCategoryTabs() {
+            const tabs = document.getElementById('categoryTabs');
+            tabs.innerHTML = CATEGORIES.map(cat => `
+                <button onclick="setCategory('${cat}')" class="px-5 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border-4 border-white font-hand ${currentCategory === cat ? 'bg-[#1d3557] text-white' : 'bg-white text-[#1d3557] hover:bg-white'}">${cat}</button>
+            `).join('');
+        }
+
+        function renderStatusFilters() {
+            const filters = document.getElementById('statusFilters');
+            filters.innerHTML = STATUS_FILTERS.map(status => `
+                <button onclick="setStatus('${status}')" class="px-5 py-2 rounded-xl text-sm font-bold transition-all border-4 border-white font-hand shadow-sm ${currentStatus === status ? 'bg-[#bc4749] text-white' : 'bg-white text-[#1d3557]'}">${status === '全部' ? '全部狀態' : status}</button>
+            `).join('');
+        }
+
+        // --- 4. 全域操作函數 ---
+        window.toggleModal = function(show) {
             const modal = document.getElementById('postModal');
             modal.style.display = show ? 'flex' : 'none';
             if (!show) {
@@ -218,121 +431,102 @@
                 base64Image = "";
             }
         }
-
-        function handleSearch(val) { searchQuery = val; renderList(); }
-        function setCategory(cat) { currentCategory = cat; renderCategoryTabs(); renderList(); }
-        function setStatus(status) { currentStatus = status; renderStatusFilters(); renderList(); }
-
-        function resetFilters() {
-            currentCategory = "全部";
-            currentStatus = "全部";
-            searchQuery = "";
+        window.handleSearch = function(val) { searchQuery = val; renderList(); }
+        window.setCategory = function(cat) { currentCategory = cat; renderCategoryTabs(); renderList(); }
+        window.setStatus = function(status) { currentStatus = status; renderStatusFilters(); renderList(); }
+        window.resetFilters = function() {
+            currentCategory = "全部"; currentStatus = "全部"; searchQuery = "";
             document.getElementById('searchInput').value = "";
-            renderCategoryTabs();
-            renderStatusFilters();
-            renderList();
+            renderCategoryTabs(); renderStatusFilters(); renderList();
+        }
+        window.toggleStar = function(id, event) {
+            if (event) event.preventDefault();
+            const item = loadData().find(r => r.id === id);
+            if (!item) return;
+            updateRecordField(id, { star_status: item.star_status === 'starred' ? 'unstarred' : 'starred' });
+        }
+        window.toggleItemStatus = function(id, event) {
+            if (event) event.preventDefault();
+            const item = loadData().find(r => r.id === id);
+            if (!item) return;
+            updateRecordField(id, { status: item.status === 'active' ? 'sold' : 'active' });
+        }
+        window.deleteRecord = function(id, event) {
+            if (event) event.preventDefault();
+            if (!confirm("確定要刪除這筆寶物嗎？")) return;
+            deleteRecordById(id);
         }
 
-        function renderCategoryTabs() {
-            const tabs = document.getElementById('categoryTabs');
-            tabs.innerHTML = CATEGORIES.map(cat => `
-                <button onclick="setCategory('${cat}')" class="px-5 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border-4 border-white font-hand ${currentCategory === cat ? 'bg-[#1d3557] text-white' : 'bg-white text-[#1d3557] hover:bg-white'}">
-                    ${cat}
-                </button>
-            `).join('');
-        }
+        // --- 5. 初始化與事件綁定 (確保 DOM 載入後執行) ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            // 綁定 UI 事件
+            document.getElementById('openModalBtn').addEventListener('click', () => toggleModal(true));
+            document.getElementById('closeModalBtn').addEventListener('click', () => toggleModal(false));
+            document.getElementById('cancelModalBtn').addEventListener('click', () => toggleModal(false));
+            document.getElementById('searchInput').addEventListener('input', (e) => handleSearch(e.target.value));
 
-        function renderStatusFilters() {
-            const filters = document.getElementById('statusFilters');
-            filters.innerHTML = STATUS_FILTERS.map(status => `
-                <button onclick="setStatus('${status}')" class="px-5 py-2 rounded-xl text-sm font-bold transition-all border-4 border-white font-hand shadow-sm ${currentStatus === status ? 'bg-[#bc4749] text-white' : 'bg-white text-[#1d3557]'}">
-                    ${status === '全部' ? '全部狀態' : status}
-                </button>
-            `).join('');
-        }
-
-        // 🌟 優化：Image Handling (加入 Canvas 壓縮，防止 Base64 過大導致 GAS 寫入失敗)
-        document.getElementById('fileInput').onchange = function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(re) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const MAX_SIZE = 800; // 限制最大邊長為 800px
-                    let width = img.width;
-                    let height = img.height;
-
-                    if (width > height && width > MAX_SIZE) {
-                        height *= MAX_SIZE / width;
-                        width = MAX_SIZE;
-                    } else if (height > MAX_SIZE) {
-                        width *= MAX_SIZE / height;
-                        height = MAX_SIZE;
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // 轉為 JPEG 並設定品質為 0.7，大幅減少字串長度
-                    base64Image = canvas.toDataURL('image/jpeg', 0.7); 
-                    
-                    const preview = document.getElementById('imagePreview');
-                    preview.src = base64Image;
-                    preview.classList.remove('hidden');
-                    document.getElementById('uploadPrompt').classList.add('hidden');
+            // 圖片上傳與壓縮處理
+            document.getElementById('fileInput').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(re) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const MAX_SIZE = 800;
+                        let width = img.width, height = img.height;
+                        if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } 
+                        else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+                        canvas.width = width; canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                        base64Image = canvas.toDataURL('image/jpeg', 0.7); // 壓縮為 JPEG
+                        const preview = document.getElementById('imagePreview');
+                        preview.src = base64Image;
+                        preview.classList.remove('hidden');
+                        document.getElementById('uploadPrompt').classList.add('hidden');
+                    };
+                    img.src = re.target.result;
                 };
-                img.src = re.target.result;
-            };
-            reader.readAsDataURL(file);
-        };
+                reader.readAsDataURL(file);
+            });
 
-        // Form Submit
-        document.getElementById('postForm').onsubmit = function(e) {
-            e.preventDefault();
-            const record = {
-                id: Date.now() + "_" + Math.random().toString(36).slice(2,6),
-                createdAt: new Date().toISOString(),
-                status: "active",
-                star_status: "unstarred",
-                title: document.getElementById('title').value,
-                description: document.getElementById('description').value,
-                category: document.getElementById('category').value,
-                price: document.getElementById('price').value,
-                nickname: document.getElementById('nickname').value,
-                imageUrl: base64Image || "https://images.unsplash.com/photo-1540317580384-e5d43616b9aa?q=80&w=300"
-            };
-            addRecord(record);
-            toggleModal(false);
-        };
+            // 表單提交
+            document.getElementById('postForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const record = {
+                    id: Date.now() + "_" + Math.random().toString(36).slice(2,6),
+                    createdAt: new Date().toISOString(),
+                    status: "active",
+                    star_status: "unstarred",
+                    title: document.getElementById('title').value,
+                    description: document.getElementById('description').value,
+                    category: document.getElementById('category').value,
+                    price: document.getElementById('price').value,
+                    nickname: document.getElementById('nickname').value,
+                    imageUrl: base64Image || "https://images.unsplash.com/photo-1540317580384-e5d43616b9aa?q=80&w=300"
+                };
+                addRecord(record);
+                toggleModal(false);
+            });
 
-        // --- 合併雲端與本地資料 ---
-        function mergeRecords(localRecords, sheetRecords) {
+            // 合併雲端與本地資料
+            const sheetRecords = await loadFromSheet();
+            const localRecords = loadData();
             const map = new Map();
             localRecords.forEach(r => map.set(r.id, r));
             sheetRecords.forEach(r => {
                 const existing = map.get(r.id);
-                if (!existing || new Date(r.createdAt) > new Date(existing.createdAt)) {
-                    map.set(r.id, r);
-                }
+                if (!existing || new Date(r.createdAt) > new Date(existing.createdAt)) map.set(r.id, r);
             });
-            return Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        }
-
-        // --- 初始化 ---
-        window.onload = async () => {
-            const sheetRecords = await loadFromSheet();
-            const localRecords = loadData();
-            const merged = mergeRecords(localRecords, sheetRecords);
+            const merged = Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
             
+            // 初始渲染
             renderCategoryTabs();
             renderStatusFilters();
             renderList();
-            lucide.createIcons();
-        };
+        });
     </script>
+</body>
+</html>
