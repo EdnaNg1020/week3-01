@@ -264,7 +264,7 @@
         // 請將下方 URL 替換為您部署的 Google Apps Script 網頁應用程式網址
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxEPtNvyvmfi6kkXCtrBuzNuWYtIRa12khkLSaUjgumlUq2pdX7qhB2cf_7U5VOUGxY/exec";
 
-        // 非同步同步函數 (僅發送，不等待結果)
+        // 非同步同步函數 (發送變更到 Sheet，不等待結果)
         function syncToSheet(payload) {
             if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
                 console.warn("syncToSheet: APPS_SCRIPT_URL 尚未設定，跳過同步");
@@ -286,6 +286,28 @@
             });
         }
 
+        // 從 Apps Script 載入所有記錄（用於初始同步）
+        async function loadFromSheet() {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
+                console.warn("APPS_SCRIPT_URL 未設定，跳過載入");
+                return [];
+            }
+            try {
+                const response = await fetch(APPS_SCRIPT_URL);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                if (data.status === "ok" && Array.isArray(data.records)) {
+                    return data.records;
+                } else {
+                    console.warn("Sheet 回傳格式異常:", data);
+                    return [];
+                }
+            } catch (err) {
+                console.error("從 Sheet 載入失敗:", err);
+                return [];
+            }
+        }
+
         // --- CONSTANTS ---
         const LOCAL_STORAGE_KEY = "records";
         const CATEGORIES = ["全部", "書籍", "3C產品", "生活用品", "服飾", "其他"];
@@ -298,9 +320,6 @@
 
         // --- CORE FUNCTIONS ---
 
-        /**
-         * 讀取資料 from localStorage
-         */
         function loadData() {
             try {
                 return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");
@@ -309,46 +328,27 @@
             }
         }
 
-        /**
-         * 儲存資料到 localStorage，不觸發同步 (內部用)
-         */
         function persistToLocalStorage(records) {
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
             renderList();
         }
 
-        /**
-         * 新增一筆記錄 (localStorage + 同步到 Sheet)
-         */
         function addRecord(newRecord) {
             const records = loadData();
             records.unshift(newRecord);
             persistToLocalStorage(records);
-            // 同步到 Google Sheet (非同步，不影響 UI)
             syncToSheet({ action: "create", record: newRecord });
         }
 
-        // --- 原本 saveData 改名為 addRecord，為相容性保留舊名稱但指向新函數
-        function saveData(newRecord) {
-            addRecord(newRecord);
-        }
-
-        /**
-         * 更新單筆記錄的特定欄位 (localStorage + 同步)
-         */
         function updateRecordField(id, changes) {
             const records = loadData();
             const item = records.find(r => r.id === id);
             if (!item) return;
             Object.assign(item, changes);
             persistToLocalStorage(records);
-            // 同步到 Sheet
             syncToSheet({ action: "update", id: id, changes: changes });
         }
 
-        /**
-         * 刪除記錄 (localStorage + 同步)
-         */
         function deleteRecordById(id) {
             const records = loadData();
             const filtered = records.filter(r => r.id !== id);
@@ -356,14 +356,12 @@
             syncToSheet({ action: "delete", id: id });
         }
 
-        // --- 相容原本的 deleteRecord 函數簽名 (原本接收 id, event)
         function deleteRecord(id, event) {
             if (event) event.preventDefault();
             if (!confirm("確定要刪除這筆寶物嗎？")) return;
             deleteRecordById(id);
         }
 
-        // --- 跟星號、狀態相關的函數，改用 updateRecordField ---
         function toggleStar(id, event) {
             if (event) event.preventDefault();
             const records = loadData();
@@ -382,12 +380,7 @@
             updateRecordField(id, { status: newStatus });
         }
 
-        // --- 其餘函數 (renderList, 過濾等) 完全不動，僅更新呼叫的儲存函數 ---
-        // --- 但 renderList 有一處呼叫 deleteRecord，已處理 ---
-
-        /**
-         * 渲染列表 (與原本完全相同，但內部使用的 localStorage 資料仍由 persistToLocalStorage 維護)
-         */
+        // --- RENDER ---
         function renderList() {
             const records = loadData();
             
@@ -437,7 +430,6 @@
             lucide.createIcons();
         }
 
-        // --- UI 輔助函數 (createItemCard 不變，但按鈕 onclick 已指向新的全域函數) ---
         function createItemCard(item) {
             const div = document.createElement('div');
             div.className = "sticker-card flex flex-col p-3 animate-fade";
@@ -488,7 +480,7 @@
             return div;
         }
 
-        // --- 其餘事件處理函數 (與原本相同，但部分已修改內部儲存邏輯) ---
+        // --- UI HELPERS ---
         function toggleModal(show) {
             const modal = document.getElementById('postModal');
             modal.style.display = show ? 'flex' : 'none';
@@ -527,7 +519,6 @@
             renderList();
         }
 
-        // --- 初始化 UI Helper 函數 ---
         function renderCategoryTabs() {
             const tabs = document.getElementById('categoryTabs');
             tabs.innerHTML = CATEGORIES.map(cat => `
@@ -581,8 +572,30 @@
             toggleModal(false);
         };
 
-        // On Load
-        window.onload = () => {
+        // --- 合併雲端與本地資料 ---
+        function mergeRecords(localRecords, sheetRecords) {
+            const map = new Map();
+            localRecords.forEach(r => map.set(r.id, r));
+            sheetRecords.forEach(r => {
+                const existing = map.get(r.id);
+                if (!existing || new Date(r.createdAt) > new Date(existing.createdAt)) {
+                    map.set(r.id, r);
+                }
+            });
+            return Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        }
+
+        // --- 初始化 (加入載入 Sheet 資料) ---
+        window.onload = async () => {
+            // 先從 Sheet 載入雲端資料
+            const sheetRecords = await loadFromSheet();
+            const localRecords = loadData();
+            
+            // 合併並寫回 localStorage
+            const merged = mergeRecords(localRecords, sheetRecords);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+            
+            // 渲染畫面
             renderCategoryTabs();
             renderStatusFilters();
             renderList();
