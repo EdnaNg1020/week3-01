@@ -1,61 +1,572 @@
-<!DOCTYPE html><html lang="zh-Hant"><head>    <meta charset="UTF-8">    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <title>二手易 - 復古日系交換平台</title>    <script src="https://cdn.tailwindcss.com"></script>    <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru:wght@400;500;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">    <script src="https://unpkg.com/lucide@latest"></script>    <style>        :root {            --retro-paper: #f4f1ea;            --retro-red: #bc4749;            --retro-navy: #1d3557;            --retro-mustard: #e9c46a;            --retro-green: #6a994e;        }
-        body {            background-color: var(--retro-paper);            font-family: 'Kiwi Maru', serif;            color: var(--retro-navy);            background-image:                 radial-gradient(rgba(29, 53, 87, 0.05) 1px, transparent 1px);            background-size: 20px 20px;        }
-        .brush-text {            font-family: 'Ma Shan Zheng', cursive;        }
-        .font-hand {            font-family: 'Kiwi Maru', serif;            font-weight: 700;        }
-        .sticker-card {            background: white;            border: 4px solid white;            box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.1);            border-radius: 1rem;            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);        }
-        .sticker-card:hover {            transform: translateY(-5px) rotate(-1deg);            box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.05);        }
-        .no-scrollbar::-webkit-scrollbar {            display: none;        }
-        /* Modal Overlay */        #postModal {            display: none;            background: rgba(0, 0, 0, 0.6);            backdrop-filter: blur(4px);        }
-        .input-retro {            background: var(--retro-paper);            border: 4px solid white;            border-radius: 0.75rem;            padding: 0.75rem 1rem;            outline: none;            transition: all 0.2s;        }
-        .input-retro:focus {            border-color: var(--retro-mustard);            box-shadow: 0 0 0 4px rgba(233, 196, 106, 0.2);        }
-        .btn-retro {            padding: 0.75rem 1.5rem;            border: 4px solid white;            border-radius: 0.75rem;            font-weight: 700;            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);            transition: all 0.2s;        }
-        .btn-retro:active {            transform: translate(2px, 2px);            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);        }
-        .btn-primary { background-color: var(--retro-red); color: white; }        .btn-secondary { background-color: var(--retro-navy); color: white; }                .badge {            padding: 0.25rem 0.75rem;            border-radius: 0.5rem;            font-size: 0.75rem;            font-weight: 700;            border: 2px solid white;        }
-        /* Animations */        @keyframes fadeIn {            from { opacity: 0; transform: translateY(10px); }            to { opacity: 1; transform: translateY(0); }        }        .animate-fade {            animation: fadeIn 0.4s ease-out forwards;        }    </style></head><body class="min-h-screen">
-    <nav class="sticky top-0 z-50 bg-[#f4f1ea]/90 backdrop-blur-md border-b-4 border-white shadow-sm">        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">            <div class="flex flex-col md:flex-row md:items-center justify-between py-4 gap-4">                <div class="flex items-center gap-6 flex-1">                    <h1 class="text-4xl cursor-pointer shrink-0 brush-text hover:scale-105 transition-transform" onclick="resetFilters()">                        二手易                    </h1>                                        <div class="relative flex-1 max-w-md">                        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>                        <input                            id="searchInput"                            type="text"                            placeholder="搜尋寶物..."                            class="w-full pl-12 pr-4 py-3 bg-white border-4 border-white rounded-xl outline-none shadow-sm font-hand"                            oninput="handleSearch(this.value)"                        >                    </div>                </div>
-                <div class="flex items-center gap-4">                    <button onclick="toggleModal(true)" class="btn-retro btn-primary flex items-center gap-2">                        <i data-lucide="plus" class="w-5 h-5"></i>                        <span>發佈物品</span>                    </button>
-                    <div class="relative group">                        <div id="userProfileBtn" class="w-12 h-12 rounded-xl border-4 border-white shadow-md overflow-hidden bg-white cursor-pointer ring-2 ring-slate-100">                            <img id="userAvatar" src="https://api.dicebear.com/7.x/adventurer/svg?seed=Lucky" alt="Avatar" class="w-full h-full object-cover">                        </div>                    </div>                </div>            </div>
-            <div class="flex items-center gap-2 pb-3 overflow-x-auto no-scrollbar" id="categoryTabs">                </div>        </div>    </nav>
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">            <div class="flex flex-wrap items-center gap-3" id="statusFilters">                </div>
-            <div class="flex items-center gap-6 px-6 py-3 bg-white border-4 border-white rounded-2xl shadow-sm font-hand">                <div class="flex flex-col items-center">                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">待售 Active</span>                    <span id="statActive" class="text-xl font-bold">0</span>                </div>                <div class="w-1 h-8 bg-[#f4f1ea] rounded-full"></div>                <div class="flex flex-col items-center">                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">已結 Done</span>                    <span id="statDone" class="text-xl font-bold text-[#bc4749]">0</span>                </div>                <div class="w-1 h-8 bg-[#f4f1ea] rounded-full"></div>                <div class="flex flex-col items-center">                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">總計 Total</span>                    <span id="statTotal" class="text-xl font-bold">0</span>                </div>            </div>        </div>
-        <div id="itemList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">            </div>
-        <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center">            <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-md mb-6">                <i data-lucide="package-search" class="w-10 h-10 text-slate-300"></i>            </div>            <h3 class="text-xl font-bold mb-2">找不到相關物品</h3>            <p class="text-slate-500">試試更換關鍵字或分類</p>        </div>    </main>
-    <div id="postModal" class="fixed inset-0 z-[100] p-4 flex items-center justify-center">        <div class="relative sticker-card w-full max-w-2xl bg-white overflow-hidden animate-fade">            <div class="flex items-center justify-between p-6 border-b-4 border-[#f4f1ea] bg-[#f4f1ea]/30">                <h2 class="text-2xl font-bold brush-text">發佈新寶物 ✨</h2>                <button onclick="toggleModal(false)" class="p-2 hover:bg-white rounded-lg transition-colors">                    <i data-lucide="x" class="w-6 h-6"></i>                </button>            </div>
-            <form id="postForm" class="p-6 max-h-[80vh] overflow-y-auto">                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">                    <div class="space-y-4">                        <label class="block text-lg font-bold font-hand">物品圖片 📸</label>                        <div id="dropZone" class="relative aspect-square rounded-2xl border-4 border-dashed border-[#f4f1ea] bg-[#f4f1ea]/20 flex flex-col items-center justify-center gap-3 overflow-hidden transition-all hover:border-[#e9c46a]">                            <img id="imagePreview" class="absolute inset-0 w-full h-full object-cover hidden" src="" alt="Preview">                            <div id="uploadPrompt" class="text-center p-4">                                <i data-lucide="upload" class="w-8 h-8 text-[#bc4749] mx-auto mb-2"></i>                                <p class="text-xs font-bold font-hand">點擊上傳圖片</p>                            </div>                            <input type="file" id="fileInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">                        </div>                    </div>
-                    <div class="space-y-4">                        <div>                            <label class="block text-sm font-bold mb-1">物品名稱</label>                            <input type="text" id="title" required class="w-full input-retro font-hand" placeholder="例如：二手筆電">                        </div>                        <div>                            <label class="block text-sm font-bold mb-1">分類</label>                            <select id="category" class="w-full input-retro font-hand">                                <option>書籍</option>                                <option>3C產品</option>                                <option>生活用品</option>                                <option>服飾</option>                                <option>其他</option>                            </select>                        </div>                        <div>                            <label class="block text-sm font-bold mb-1">價格/交換</label>                            <input type="text" id="price" required class="w-full input-retro font-hand" placeholder="例如：$500">                        </div>                        <div>                            <label class="block text-sm font-bold mb-1">您的暱稱</label>                            <input type="text" id="nickname" required class="w-full input-retro font-hand" value="小手">                        </div>                    </div>                </div>
-                <div class="mt-6">                    <label class="block text-sm font-bold mb-1">物品描述</label>                    <textarea id="description" required rows="3" class="w-full input-retro font-hand resize-none" placeholder="描述新舊程度..."></textarea>                </div>
-                <div class="mt-8 flex gap-4">                    <button type="button" onclick="toggleModal(false)" class="flex-1 btn-retro bg-white text-slate-500">取消</button>                    <button type="submit" class="flex-1 btn-retro btn-primary">立即發佈</button>                </div>            </form>        </div>    </div>
-    <script>        // --- GOOGLE SHEET SYNC CONFIGURATION ---        // 請將下方 URL 替換為您部署的 Google Apps Script 網頁應用程式網址        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_BUQUdcrJkxUnb-bJXngQGU7s1bSVtYuPLov7lAu-mRQp4TVpWP9wv4ENyEmjaYd2/exec";
-        // 非同步同步函數 (修正版：採用不觸發 CORS 預檢的傳送機制)        function syncToSheet(payload) {            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "請在此處貼上您重新部署後的網頁應用程式網址") {                console.warn("syncToSheet: APPS_SCRIPT_URL 尚未設定，跳過同步");                return;            }
-            // 使用 URLSearchParams 封裝資料，這會讓瀏覽器以標準表單格式發送，避開 CORS 阻擋            const formBody = new URLSearchParams();            formBody.append("payload", JSON.stringify(payload));
-            fetch(APPS_SCRIPT_URL, {                method: "POST",                mode: "no-cors", // 強制關閉瀏覽器跨網域 CORS 限制                headers: {                    "Content-Type": "application/x-www-form-urlencoded"                },                body: formBody            })            .then(() => {                console.log("數據同步請求已成功發送至後端試算表");            })            .catch(err => {                console.warn("syncToSheet 失敗 (網路錯誤):", err);            });        }
-        // --- CONSTANTS ---        const LOCAL_STORAGE_KEY = "records";        const CATEGORIES = ["全部", "書籍", "3C產品", "生活用品", "服飾", "其他"];        const STATUS_FILTERS = ["全部", "待售", "已出售", "收藏"];
-        let currentCategory = "全部";        let currentStatus = "全部";        let searchQuery = "";        let base64Image = "";
-        // --- CORE FUNCTIONS ---
-        /** * 讀取資料 from localStorage         */        function loadData() {            try {                return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");            } catch (e) {                return [];            }        }
-        /** * 儲存資料到 localStorage，不觸發同步 (內部用)         */        function persistToLocalStorage(records) {            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));            renderList();        }
-        /** * 新增一筆記錄 (localStorage + 同步到 Sheet)         */        function addRecord(newRecord) {            const records = loadData();            records.unshift(newRecord);            persistToLocalStorage(records);            // 同步到 Google Sheet            syncToSheet({ action: "create", record: newRecord });        }
-        function saveData(newRecord) {            addRecord(newRecord);        }
-        /** * 更新單筆記錄的特定欄位 (localStorage + 同步)         */        function updateRecordField(id, changes) {            const records = loadData();            const item = records.find(r => r.id === id);            if (!item) return;            Object.assign(item, changes);            persistToLocalStorage(records);            // 同步到 Sheet            syncToSheet({ action: "update", id: id, changes: changes });        } cutout
-        /** * 刪除記錄 (localStorage + 同步)         */        function deleteRecordById(id) {            const records = loadData();            const filtered = records.filter(r => r.id !== id);            persistToLocalStorage(filtered);            syncToSheet({ action: "delete", id: id });        }
-        function deleteRecord(id, event) {            if (event) event.preventDefault();            if (!confirm("確定要刪除這筆寶物嗎？")) return;            deleteRecordById(id);        }
-        function toggleStar(id, event) {            if (event) event.preventDefault();            const records = loadData();            const item = records.find(r => r.id === id);            if (!item) return;            const newStarStatus = item.star_status === 'starred' ? 'unstarred' : 'starred';            updateRecordField(id, { star_status: newStarStatus });        }
-        function toggleItemStatus(id, event) {            if (event) event.preventDefault();            const records = loadData();            const item = records.find(r => r.id === id);            if (!item) return;            const newStatus = item.status === 'active' ? 'sold' : 'active';            updateRecordField(id, { status: newStatus });        }
-        /** * 渲染列表         */        function renderList() {            const records = loadData();                        let filtered = records.filter(item => {                const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||                                      item.description.toLowerCase().includes(searchQuery.toLowerCase());                const matchesCategory = currentCategory === "全部" || item.category === currentCategory;                                let matchesStatus = true;                if (currentStatus === "待售") matchesStatus = item.status === "active";                else if (currentStatus === "已出售") matchesStatus = item.status === "sold";                else if (currentStatus === "收藏") matchesStatus = item.star_status === "starred";
-                return matchesSearch && matchesCategory && matchesStatus;            });
-            filtered.sort((a, b) => {                if (a.star_status === 'starred' && b.star_status !== 'starred') return -1;                if (a.star_status !== 'starred' && b.star_status === 'starred') return 1;                return new Date(b.createdAt) - new Date(a.createdAt);            }); offset
-            const stats = {                active: records.filter(r => r.status === 'active').length,                sold: records.filter(r => r.status === 'sold').length,                total: records.length            };            document.getElementById('statActive').innerText = stats.active;            document.getElementById('statDone').innerText = stats.sold;            document.getElementById('statTotal').innerText = stats.total;
-            const listEl = document.getElementById('itemList');            const emptyEl = document.getElementById('emptyState');                        listEl.innerHTML = "";                        if (filtered.length === 0) {                emptyEl.classList.remove('hidden');            } else {                emptyEl.classList.add('hidden');                filtered.forEach(item => {                    const card = createItemCard(item);                    listEl.appendChild(card);                });            }
-            lucide.createIcons();        }
-        function createItemCard(item) {            const div = document.createElement('div');            div.className = "sticker-card flex flex-col p-3 animate-fade";            const isSold = item.status === 'sold';            const isStarred = item.star_status === 'starred';
-            div.innerHTML = `                <div class="relative aspect-square overflow-hidden rounded-xl border-2 border-slate-50 mb-3 bg-slate-50">                    <img src="${item.imageUrl || 'https://images.unsplash.com/photo-1540317580384-e5d43616b9aa?q=80&w=300'}" class="w-full h-full object-cover transition-transform hover:scale-110 ${isSold ? 'grayscale opacity-70' : ''}">                    ${isSold ? `                        <div class="absolute inset-0 flex items-center justify-center bg-black/10">                            <span class="px-4 py-2 bg-[#bc4749] text-white font-hand border-2 border-white rounded-lg shadow-lg rotate-[-12deg]">已出售 ✨</span>                        </div>                    ` : ''}                    <div class="absolute top-2 left-2">                        <span class="px-2 py-0.5 bg-[#e9c46a] text-[#1d3557] text-[10px] font-bold rounded shadow-sm border border-white">${item.category}</span>                    </div>                    <div class="absolute top-2 right-2">                        <button onclick="toggleStar('${item.id}', event)" class="p-2 rounded-lg border-2 border-white shadow-sm transition-all ${isStarred ? 'bg-yellow-400 text-white' : 'bg-white/80 text-slate-300'}">                            ${isStarred ? '🌟' : '⭐'}                        </button>                    </div>                </div>                <div class="px-2 pb-2">                    <div class="flex justify-between items-start mb-1">                        <h3 class="font-bold text-[#1d3557] line-clamp-1 font-hand">${item.title}</h3>                        <span class="text-[#bc4749] font-bold text-sm ml-2">${item.price}</span>                    </div>                    <p class="text-[10px] text-slate-500 line-clamp-2 h-8 overflow-hidden mb-3">${item.description}</p>                    <div class="flex items-center justify-between pt-3 border-t-2 border-[#f4f1ea]">                        <div class="flex items-center gap-2">                            <div class="w-6 h-6 rounded bg-slate-100 overflow-hidden border">                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${item.nickname}" class="w-full h-full">                            </div>                            <span class="text-[10px] font-bold font-hand">${item.nickname}</span>                        </div>                        <div class="flex items-center gap-2">                            <button onclick="toggleItemStatus('${item.id}', event)" class="p-1 hover:text-green-600">                                <i data-lucide="${isSold ? 'rotate-ccw' : 'check-circle-2'}" class="w-4 h-4"></i>                            </button>                            <button onclick="deleteRecord('${item.id}', event)" class="p-1 hover:text-[#bc4749]">                                <i data-lucide="trash-2" class="w-4 h-4"></i>                            </button>                        </div>                    </div>                </div>            `;            return div;        }
-        function toggleModal(show) {            const modal = document.getElementById('postModal');            modal.style.display = show ? 'flex' : 'none';            if (!show) {                document.getElementById('postForm').reset();                document.getElementById('imagePreview').classList.add('hidden');                document.getElementById('uploadPrompt').classList.remove('hidden');                base64Image = "";            }        }
-        function handleSearch(val) {            searchQuery = val;            renderList();        }
-        function setCategory(cat) {            currentCategory = cat;            renderCategoryTabs();            renderList();        }
-        function setStatus(status) {            currentStatus = status;            renderStatusFilters();            renderList();        }
-        function resetFilters() {            currentCategory = "全部";            currentStatus = "全部";            searchQuery = "";            document.getElementById('searchInput').value = "";            renderCategoryTabs();            renderStatusFilters();            renderList();        }
-        function renderCategoryTabs() {            const tabs = document.getElementById('categoryTabs');            tabs.innerHTML = CATEGORIES.map(cat => `                <button onclick="setCategory('${cat}')" class="px-5 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border-4 border-white font-hand ${currentCategory === cat ? 'bg-[#1d3557] text-white' : 'bg-white text-[#1d3557] hover:bg-white'}">                    ${cat}                </button>            `).join('');        }
-        function renderStatusFilters() {            const filters = document.getElementById('statusFilters');            filters.innerHTML = STATUS_FILTERS.map(status => `                <button onclick="setStatus('${status}')" class="px-5 py-2 rounded-xl text-sm font-bold transition-all border-4 border-white font-hand shadow-sm ${currentStatus === status ? 'bg-[#bc4749] text-white' : 'bg-white text-[#1d3557]'}">                    ${status === '全部' ? '全部狀態' : status}                </button>            `).join('');        }
-        // Image Handling        document.getElementById('fileInput').onchange = function(e) {            const file = e.target.files[0];            if (file) {                const reader = new FileReader();                reader.onload = function(re) {                    base64Image = re.target.result;                    const preview = document.getElementById('imagePreview');                    preview.src = base64Image;                    preview.classList.remove('hidden');                    document.getElementById('uploadPrompt').classList.add('hidden');                };                reader.readAsDataURL(file);            }        };
-        // Form Submit        document.getElementById('postForm').onsubmit = function(e) {            e.preventDefault();            const record = {                id: Date.now() + "_" + Math.random().toString(36).slice(2,6),                createdAt: new Date().toISOString(),                status: "active",                star_status: "unstarred",                title: document.getElementById('title').value,                description: document.getElementById('description').value,                category: document.getElementById('category').value,                price: document.getElementById('price').value,                nickname: document.getElementById('nickname').value,                imageUrl: base64Image            };            addRecord(record);            toggleModal(false);        };
-        // On Load        window.onload = () => {            renderCategoryTabs();            renderStatusFilters();            renderList();            lucide.createIcons();        };    </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二手易 - 復古日系交換平台</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru:wght@400;500;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --retro-paper: #f4f1ea;
+            --retro-red: #bc4749;
+            --retro-navy: #1d3557;
+            --retro-mustard: #e9c46a;
+            --retro-green: #6a994e;
+        }
+        body {
+            background-color: var(--retro-paper);
+            font-family: 'Kiwi Maru', serif;
+            color: var(--retro-navy);
+            background-image: 
+                radial-gradient(rgba(29, 53, 87, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .brush-text {
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+        .font-hand {
+            font-family: 'Kiwi Maru', serif;
+            font-weight: 700;
+        }
+        .sticker-card {
+            background: white;
+            border: 4px solid white;
+            box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sticker-card:hover {
+            transform: translateY(-5px) rotate(-1deg);
+            box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.05);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        #postModal {
+            display: none;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+        .input-retro {
+            background: var(--retro-paper);
+            border: 4px solid white;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .input-retro:focus {
+            border-color: var(--retro-mustard);
+            box-shadow: 0 0 0 4px rgba(233, 196, 106, 0.2);
+        }
+        .btn-retro {
+            padding: 0.75rem 1.5rem;
+            border: 4px solid white;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+        .btn-retro:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary { background-color: var(--retro-red); color: white; }
+        .btn-secondary { background-color: var(--retro-navy); color: white; }
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 2px solid white;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-50 bg-[#f4f1ea]/90 backdrop-blur-md border-b-4 border-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-center justify-between py-4 gap-4">
+                <div class="flex items-center gap-6 flex-1">
+                    <h1 class="text-4xl cursor-pointer shrink-0 brush-text hover:scale-105 transition-transform" onclick="resetFilters()">
+                        二手易
+                    </h1>
+                    <div class="relative flex-1 max-w-md">
+                        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                        <input
+                            id="searchInput"
+                            type="text"
+                            placeholder="搜尋寶物..."
+                            class="w-full pl-12 pr-4 py-3 bg-white border-4 border-white rounded-xl outline-none shadow-sm font-hand"
+                            oninput="handleSearch(this.value)"
+                        >
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleModal(true)" class="btn-retro btn-primary flex items-center gap-2">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        <span>發佈物品</span>
+                    </button>
+                    <div class="relative group">
+                        <div id="userProfileBtn" class="w-12 h-12 rounded-xl border-4 border-white shadow-md overflow-hidden bg-white cursor-pointer ring-2 ring-slate-100">
+                            <img id="userAvatar" src="https://api.dicebear.com/7.x/adventurer/svg?seed=Lucky" alt="Avatar" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 pb-3 overflow-x-auto no-scrollbar" id="categoryTabs">
+                <!-- JS fills -->
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div class="flex flex-wrap items-center gap-3" id="statusFilters">
+                <!-- JS fills -->
+            </div>
+            <div class="flex items-center gap-6 px-6 py-3 bg-white border-4 border-white rounded-2xl shadow-sm font-hand">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">待售 Active</span>
+                    <span id="statActive" class="text-xl font-bold">0</span>
+                </div>
+                <div class="w-1 h-8 bg-[#f4f1ea] rounded-full"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">已結 Done</span>
+                    <span id="statDone" class="text-xl font-bold text-[#bc4749]">0</span>
+                </div>
+                <div class="w-1 h-8 bg-[#f4f1ea] rounded-full"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">總計 Total</span>
+                    <span id="statTotal" class="text-xl font-bold">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="itemList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- JS fills cards -->
+        </div>
+
+        <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center">
+            <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-md mb-6">
+                <i data-lucide="package-search" class="w-10 h-10 text-slate-300"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-2">找不到相關物品</h3>
+            <p class="text-slate-500">試試更換關鍵字或分類</p>
+        </div>
+    </main>
+
+    <!-- POST MODAL -->
+    <div id="postModal" class="fixed inset-0 z-[100] p-4 flex items-center justify-center">
+        <div class="relative sticker-card w-full max-w-2xl bg-white overflow-hidden animate-fade">
+            <div class="flex items-center justify-between p-6 border-b-4 border-[#f4f1ea] bg-[#f4f1ea]/30">
+                <h2 class="text-2xl font-bold brush-text">發佈新寶物 ✨</h2>
+                <button onclick="toggleModal(false)" class="p-2 hover:bg-white rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <form id="postForm" class="p-6 max-h-[80vh] overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <label class="block text-lg font-bold font-hand">物品圖片 📸</label>
+                        <div id="dropZone" class="relative aspect-square rounded-2xl border-4 border-dashed border-[#f4f1ea] bg-[#f4f1ea]/20 flex flex-col items-center justify-center gap-3 overflow-hidden transition-all hover:border-[#e9c46a]">
+                            <img id="imagePreview" class="absolute inset-0 w-full h-full object-cover hidden" src="" alt="Preview">
+                            <div id="uploadPrompt" class="text-center p-4">
+                                <i data-lucide="upload" class="w-8 h-8 text-[#bc4749] mx-auto mb-2"></i>
+                                <p class="text-xs font-bold font-hand">點擊上傳圖片</p>
+                            </div>
+                            <input type="file" id="fileInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-1">物品名稱</label>
+                            <input type="text" id="title" required class="w-full input-retro font-hand" placeholder="例如：二手筆電">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1">分類</label>
+                            <select id="category" class="w-full input-retro font-hand">
+                                <option>書籍</option>
+                                <option>3C產品</option>
+                                <option>生活用品</option>
+                                <option>服飾</option>
+                                <option>其他</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1">價格/交換</label>
+                            <input type="text" id="price" required class="w-full input-retro font-hand" placeholder="例如：$500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1">您的暱稱</label>
+                            <input type="text" id="nickname" required class="w-full input-retro font-hand" value="小手">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <label class="block text-sm font-bold mb-1">物品描述</label>
+                    <textarea id="description" required rows="3" class="w-full input-retro font-hand resize-none" placeholder="描述新舊程度..."></textarea>
+                </div>
+                <div class="mt-8 flex gap-4">
+                    <button type="button" onclick="toggleModal(false)" class="flex-1 btn-retro bg-white text-slate-500">取消</button>
+                    <button type="submit" class="flex-1 btn-retro btn-primary">立即發佈</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        // --- GOOGLE SHEET SYNC CONFIGURATION ---
+        // 請將下方 URL 替換為您部署的 Google Apps Script 網頁應用程式網址
+        const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbw0RnEUNsVJ9vmAdGsv_nyq811GFY0vnsSFdzvc9U3zCDa1GYAGz5QSVXmz1NkexgIA/exec";
+
+        // --- 非同步同步函數 (只傳送純文字資料，不含圖片) ---
+        function syncToSheet(payload) {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
+                console.warn("syncToSheet: APPS_SCRIPT_URL 尚未設定，跳過同步");
+                return;
+            }
+            fetch(APPS_SCRIPT_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(payload)
+            })
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.status !== "created" && data.status !== "updated" && data.status !== "deleted") {
+                    console.warn("syncToSheet 回應異常:", data);
+                }
+            })
+            .catch(err => {
+                console.warn("syncToSheet 失敗 (網路或伺服器錯誤):", err);
+            });
+        }
+
+        // --- CONSTANTS ---
+        const LOCAL_STORAGE_KEY = "records";
+        const CATEGORIES = ["全部", "書籍", "3C產品", "生活用品", "服飾", "其他"];
+        const STATUS_FILTERS = ["全部", "待售", "已出售", "收藏"];
+
+        let currentCategory = "全部";
+        let currentStatus = "全部";
+        let searchQuery = "";
+        let base64Image = "";
+
+        // --- 安全的資料讀取 (自動過濾無效記錄) ---
+        function loadData() {
+            try {
+                const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (!raw) return [];
+                const data = JSON.parse(raw);
+                if (!Array.isArray(data)) return [];
+                // 只保留 title 為字串的有效記錄
+                return data.filter(item => item && typeof item.title === 'string');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // --- 寫入 localStorage (不觸發同步) ---
+        function persistToLocalStorage(records) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
+            renderList();
+        }
+
+        // --- 新增記錄 (儲存含圖片的完整記錄，但同步時僅傳送純文字) ---
+        function addRecord(newRecord) {
+            const records = loadData();
+            records.unshift(newRecord);
+            persistToLocalStorage(records);
+            
+            // 同步時去除 base64 圖片，避免超出儲存格限制
+            const syncRecord = { ...newRecord };
+            delete syncRecord.imageUrl;
+            syncToSheet({ action: "create", record: syncRecord });
+        }
+
+        // 保留舊函數名稱相容性
+        function saveData(newRecord) {
+            addRecord(newRecord);
+        }
+
+        // --- 更新記錄欄位 ---
+        function updateRecordField(id, changes) {
+            const records = loadData();
+            const item = records.find(r => r.id === id);
+            if (!item) return;
+            Object.assign(item, changes);
+            persistToLocalStorage(records);
+            
+            // 同步時同樣去除圖片欄位
+            const syncChanges = { ...changes };
+            delete syncChanges.imageUrl;
+            syncToSheet({ action: "update", id: id, changes: syncChanges });
+        }
+
+        // --- 刪除記錄 ---
+        function deleteRecordById(id) {
+            const records = loadData();
+            const filtered = records.filter(r => r.id !== id);
+            persistToLocalStorage(filtered);
+            syncToSheet({ action: "delete", id: id });
+        }
+
+        function deleteRecord(id, event) {
+            if (event) event.preventDefault();
+            if (!confirm("確定要刪除這筆寶物嗎？")) return;
+            deleteRecordById(id);
+        }
+
+        // --- 切換星號狀態 ---
+        function toggleStar(id, event) {
+            if (event) event.preventDefault();
+            const records = loadData();
+            const item = records.find(r => r.id === id);
+            if (!item) return;
+            const newStarStatus = item.star_status === 'starred' ? 'unstarred' : 'starred';
+            updateRecordField(id, { star_status: newStarStatus });
+        }
+
+        // --- 切換物品狀態 (待售/已出售) ---
+        function toggleItemStatus(id, event) {
+            if (event) event.preventDefault();
+            const records = loadData();
+            const item = records.find(r => r.id === id);
+            if (!item) return;
+            const newStatus = item.status === 'active' ? 'sold' : 'active';
+            updateRecordField(id, { status: newStatus });
+        }
+
+        // --- 渲染物品清單 (防禦性處理 title 為空的情形) ---
+        function renderList() {
+            const records = loadData();
+            
+            let filtered = records.filter(item => {
+                const title = item.title || '';
+                const desc = item.description || '';
+                const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                      desc.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesCategory = currentCategory === "全部" || item.category === currentCategory;
+                
+                let matchesStatus = true;
+                if (currentStatus === "待售") matchesStatus = item.status === "active";
+                else if (currentStatus === "已出售") matchesStatus = item.status === "sold";
+                else if (currentStatus === "收藏") matchesStatus = item.star_status === "starred";
+
+                return matchesSearch && matchesCategory && matchesStatus;
+            });
+
+            // 排序：星號優先，再依時間新->舊
+            filtered.sort((a, b) => {
+                if (a.star_status === 'starred' && b.star_status !== 'starred') return -1;
+                if (a.star_status !== 'starred' && b.star_status === 'starred') return 1;
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
+            // 統計數據
+            const stats = {
+                active: records.filter(r => r.status === 'active').length,
+                sold: records.filter(r => r.status === 'sold').length,
+                total: records.length
+            };
+            document.getElementById('statActive').innerText = stats.active;
+            document.getElementById('statDone').innerText = stats.sold;
+            document.getElementById('statTotal').innerText = stats.total;
+
+            const listEl = document.getElementById('itemList');
+            const emptyEl = document.getElementById('emptyState');
+            listEl.innerHTML = "";
+            
+            if (filtered.length === 0) {
+                emptyEl.classList.remove('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+                filtered.forEach(item => {
+                    const card = createItemCard(item);
+                    listEl.appendChild(card);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        // --- 建立卡片 DOM ---
+        function createItemCard(item) {
+            const div = document.createElement('div');
+            div.className = "sticker-card flex flex-col p-3 animate-fade";
+            const isSold = item.status === 'sold';
+            const isStarred = item.star_status === 'starred';
+
+            div.innerHTML = `
+                <div class="relative aspect-square overflow-hidden rounded-xl border-2 border-slate-50 mb-3 bg-slate-50">
+                    <img src="${item.imageUrl || 'https://images.unsplash.com/photo-1540317580384-e5d43616b9aa?q=80&w=300'}" class="w-full h-full object-cover transition-transform hover:scale-110 ${isSold ? 'grayscale opacity-70' : ''}">
+                    ${isSold ? `
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/10">
+                            <span class="px-4 py-2 bg-[#bc4749] text-white font-hand border-2 border-white rounded-lg shadow-lg rotate-[-12deg]">已出售 ✨</span>
+                        </div>
+                    ` : ''}
+                    <div class="absolute top-2 left-2">
+                        <span class="px-2 py-0.5 bg-[#e9c46a] text-[#1d3557] text-[10px] font-bold rounded shadow-sm border border-white">${item.category}</span>
+                    </div>
+                    <div class="absolute top-2 right-2">
+                        <button onclick="toggleStar('${item.id}', event)" class="p-2 rounded-lg border-2 border-white shadow-sm transition-all ${isStarred ? 'bg-yellow-400 text-white' : 'bg-white/80 text-slate-300'}">
+                            ${isStarred ? '🌟' : '⭐'}
+                        </button>
+                    </div>
+                </div>
+                <div class="px-2 pb-2">
+                    <div class="flex justify-between items-start mb-1">
+                        <h3 class="font-bold text-[#1d3557] line-clamp-1 font-hand">${item.title}</h3>
+                        <span class="text-[#bc4749] font-bold text-sm ml-2">${item.price}</span>
+                    </div>
+                    <p class="text-[10px] text-slate-500 line-clamp-2 h-8 overflow-hidden mb-3">${item.description}</p>
+                    <div class="flex items-center justify-between pt-3 border-t-2 border-[#f4f1ea]">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded bg-slate-100 overflow-hidden border">
+                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${item.nickname}" class="w-full h-full">
+                            </div>
+                            <span class="text-[10px] font-bold font-hand">${item.nickname}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="toggleItemStatus('${item.id}', event)" class="p-1 hover:text-green-600">
+                                <i data-lucide="${isSold ? 'rotate-ccw' : 'check-circle-2'}" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteRecord('${item.id}', event)" class="p-1 hover:text-[#bc4749]">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        // --- UI 控制函式 ---
+        function toggleModal(show) {
+            const modal = document.getElementById('postModal');
+            modal.style.display = show ? 'flex' : 'none';
+            if (!show) {
+                document.getElementById('postForm').reset();
+                document.getElementById('imagePreview').classList.add('hidden');
+                document.getElementById('uploadPrompt').classList.remove('hidden');
+                base64Image = "";
+            }
+        }
+
+        function handleSearch(val) {
+            searchQuery = val;
+            renderList();
+        }
+
+        function setCategory(cat) {
+            currentCategory = cat;
+            renderCategoryTabs();
+            renderList();
+        }
+
+        function setStatus(status) {
+            currentStatus = status;
+            renderStatusFilters();
+            renderList();
+        }
+
+        function resetFilters() {
+            currentCategory = "全部";
+            currentStatus = "全部";
+            searchQuery = "";
+            document.getElementById('searchInput').value = "";
+            renderCategoryTabs();
+            renderStatusFilters();
+            renderList();
+        }
+
+        function renderCategoryTabs() {
+            const tabs = document.getElementById('categoryTabs');
+            tabs.innerHTML = CATEGORIES.map(cat => `
+                <button onclick="setCategory('${cat}')" class="px-5 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border-4 border-white font-hand ${currentCategory === cat ? 'bg-[#1d3557] text-white' : 'bg-white text-[#1d3557] hover:bg-white'}">
+                    ${cat}
+                </button>
+            `).join('');
+        }
+
+        function renderStatusFilters() {
+            const filters = document.getElementById('statusFilters');
+            filters.innerHTML = STATUS_FILTERS.map(status => `
+                <button onclick="setStatus('${status}')" class="px-5 py-2 rounded-xl text-sm font-bold transition-all border-4 border-white font-hand shadow-sm ${currentStatus === status ? 'bg-[#bc4749] text-white' : 'bg-white text-[#1d3557]'}">
+                    ${status === '全部' ? '全部狀態' : status}
+                </button>
+            `).join('');
+        }
+
+        // --- 圖片上傳處理 ---
+        document.getElementById('fileInput').onchange = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(re) {
+                    base64Image = re.target.result;
+                    const preview = document.getElementById('imagePreview');
+                    preview.src = base64Image;
+                    preview.classList.remove('hidden');
+                    document.getElementById('uploadPrompt').classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        // --- 表單送出 ---
+        document.getElementById('postForm').onsubmit = function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('title').value.trim();
+            const price = document.getElementById('price').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const nickname = document.getElementById('nickname').value.trim();
+            const category = document.getElementById('category').value;
+
+            // 基本驗證
+            if (!title || !price || !description || !nickname) {
+                alert("請填寫所有必填欄位（名稱、價格、描述、暱稱）");
+                return;
+            }
+
+            const record = {
+                id: Date.now() + "_" + Math.random().toString(36).slice(2,6),
+                createdAt: new Date().toISOString(),
+                status: "active",
+                star_status: "unstarred",
+                title: title,
+                description: description,
+                category: category,
+                price: price,
+                nickname: nickname,
+                imageUrl: base64Image  // 圖片僅存於 localStorage，不會同步到 Sheet
+            };
+            
+            addRecord(record);
+            toggleModal(false);
+        };
+
+        // --- 初始化 ---
+        window.onload = () => {
+            renderCategoryTabs();
+            renderStatusFilters();
+            renderList();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
