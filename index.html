@@ -116,7 +116,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
-                    <!-- AI 摘要按鈕 (新增) -->
+                    <!-- AI 摘要按鈕 -->
                     <button onclick="handleAISummary()" id="aiBtn" class="flex items-center gap-2 bg-zinc-800 text-zinc-100 px-4 py-2 rounded-full font-medium hover:bg-zinc-700 transition-colors active:scale-95 border border-zinc-700 disabled:opacity-50">
                         <i data-lucide="sparkles" class="w-4 h-4"></i>
                         <span id="aiBtnText">AI 摘要</span>
@@ -236,10 +236,9 @@
     <!-- JAVASCRIPT -->
     <script>
         // --- GOOGLE SHEET SYNC CONFIGURATION ---
-        // 請將下方 URL 替換為您部署的 Google Apps Script 網頁應用程式網址
         const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbw0RnEUNsVJ9vmAdGsv_nyq811GFY0vnsSFdzvc9U3zCDa1GYAGz5QSVXmz1NkexgIA/exec";
 
-        // --- 非同步同步函數 (只傳送純文字資料，不含圖片) ---
+        // --- 同步 (POST) ---
         function syncToSheet(payload) {
             if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
                 console.warn("syncToSheet: APPS_SCRIPT_URL 尚未設定，跳過同步");
@@ -261,7 +260,7 @@
             });
         }
 
-        // --- CONSTANTS ---
+        // --- 常數與狀態 ---
         const LOCAL_STORAGE_KEY = "records";
         const CATEGORIES = ["全部", "書籍", "3C產品", "生活用品", "服飾", "其他"];
         const STATUS_FILTERS = ["全部", "待售", "已出售", "收藏"];
@@ -271,24 +270,24 @@
         let searchQuery = "";
         let base64Image = "";
 
-        // --- 正規化從 Sheet 回來的記錄 (支援大小寫不一致) ---
+        // --- 正規化（強制所有文字欄位為字串） ---
         function normalizeRecord(record) {
             return {
-                id: record.id || record.ID || "",
-                createdAt: record.createdAt || record.CreatedAt || "",
-                status: record.status || record.Status || "active",
-                star_status: record.star_status || record.Star_status || record.STAR_STATUS || "unstarred",
-                title: record.title || record.Title || "",
-                description: record.description || record.Description || "",
-                category: record.category || record.Category || "其他",
-                price: record.price || record.Price || "",
-                nickname: record.nickname || record.Nickname || "",
-                imageUrl: record.imageUrl || record.ImageUrl || record.IMAGEURL || "",
+                id: String(record.id || record.ID || ""),
+                createdAt: String(record.createdAt || record.CreatedAt || ""),
+                status: String(record.status || record.Status || "active"),
+                star_status: String(record.star_status || record.Star_status || "unstarred"),
+                title: String(record.title || record.Title || ""),
+                description: String(record.description || record.Description || ""),
+                category: String(record.category || record.Category || "其他"),
+                price: String(record.price || record.Price || ""),
+                nickname: String(record.nickname || record.Nickname || ""),
+                imageUrl: String(record.imageUrl || record.ImageUrl || ""),
                 likes: Number(record.likes !== undefined ? record.likes : (record.Likes || 0))
             };
         }
 
-        // --- 從 Sheet GET 所有記錄 ---
+        // --- 從 Sheet 讀取 ---
         async function fetchRecordsFromSheet() {
             if (APPS_SCRIPT_URL.includes("PASTE")) return null;
             try {
@@ -301,30 +300,23 @@
             }
         }
 
-        // --- 安全的資料讀取 (優先從 Sheet，以 localStorage 為 fallback) ---
+        // --- 主要讀取（遠端優先，localStorage 備援） ---
         async function loadData() {
             const remote = await fetchRecordsFromSheet();
             if (remote) {
                 localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(remote));
                 return remote;
             }
-            // 無網路或 API 未設定時，讀取本地備份
             const data = localStorage.getItem(LOCAL_STORAGE_KEY);
             try {
                 const parsed = data ? JSON.parse(data) : [];
-                return Array.isArray(parsed) ? parsed.filter(item => item && typeof item.title === 'string') : [];
+                return Array.isArray(parsed) ? parsed.map(normalizeRecord) : [];
             } catch (e) {
                 return [];
             }
         }
 
-        // --- 寫入 localStorage 並重新渲染 (不觸發 GET) ---
-        async function persistToLocalStorage(records) {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
-            await renderList(records);
-        }
-
-        // --- 新增記錄 (儲存含圖片的完整記錄，但同步時僅傳送純文字) ---
+        // --- 新增 / 儲存 ---
         async function addRecord(newRecord) {
             const records = await loadData();
             records.unshift(newRecord);
@@ -333,32 +325,29 @@
             await renderList(records);
         }
 
-        // 保留舊函數名稱相容性
         async function saveData(newRecord) {
             await addRecord(newRecord);
         }
 
-        // --- 更新記錄欄位 ---
+        // --- 部分更新 ---
         async function updateRecordField(id, changes) {
             const records = await loadData();
             const item = records.find(r => r.id === id);
             if (!item) return;
             Object.assign(item, changes);
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
-            
-            // 同步時去除圖片欄位
             const syncChanges = { ...changes };
             delete syncChanges.imageUrl;
-            syncToSheet({ action: "update", id: id, changes: syncChanges });
+            syncToSheet({ action: "update", id, changes: syncChanges });
             await renderList(records);
         }
 
-        // --- 刪除記錄 ---
+        // --- 刪除 ---
         async function deleteRecordById(id) {
             const records = await loadData();
             const filtered = records.filter(r => r.id !== id);
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
-            syncToSheet({ action: "delete", id: id });
+            syncToSheet({ action: "delete", id });
             await renderList(filtered);
         }
 
@@ -368,7 +357,7 @@
             await deleteRecordById(id);
         }
 
-        // --- 切換星號狀態 ---
+        // --- 星號切換 ---
         async function toggleStar(id, event) {
             if (event) event.preventDefault();
             const records = await loadData();
@@ -378,7 +367,7 @@
             await updateRecordField(id, { star_status: newStarStatus });
         }
 
-        // --- 切換物品狀態 (待售/已出售) ---
+        // --- 狀態切換 ---
         async function toggleItemStatus(id, event) {
             if (event) event.preventDefault();
             const records = await loadData();
@@ -388,25 +377,25 @@
             await updateRecordField(id, { status: newStatus });
         }
 
-        // --- 新增：按讚 (likes) ---
+        // --- 按讚 ---
         async function handleLike(id) {
             const records = await loadData();
             const index = records.findIndex(r => r.id === id);
             if (index !== -1) {
                 records[index].likes = (records[index].likes || 0) + 1;
                 localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
-                syncToSheet({ action: "update", id: id, changes: { likes: records[index].likes } });
+                syncToSheet({ action: "update", id, changes: { likes: records[index].likes } });
                 await renderList(records);
             }
         }
 
-        // --- 渲染物品清單 (支援直接傳入 records 避免重新 GET) ---
+        // --- 渲染（支援傳入 records 避免重新 GET） ---
         async function renderList(recordsOverride) {
             const records = recordsOverride || await loadData();
             
             let filtered = records.filter(item => {
-                const title = item.title || '';
-                const desc = item.description || '';
+                const title = String(item.title || '');
+                const desc = String(item.description || '');
                 const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                       desc.toLowerCase().includes(searchQuery.toLowerCase());
                 const matchesCategory = currentCategory === "全部" || item.category === currentCategory;
@@ -419,22 +408,17 @@
                 return matchesSearch && matchesCategory && matchesStatus;
             });
 
-            // 排序：星號優先，再依時間新->舊
+            // 排序：星號優先，時間新→舊
             filtered.sort((a, b) => {
                 if (a.star_status === 'starred' && b.star_status !== 'starred') return -1;
                 if (a.star_status !== 'starred' && b.star_status === 'starred') return 1;
                 return new Date(b.createdAt) - new Date(a.createdAt);
             });
 
-            // 統計數據
-            const stats = {
-                active: records.filter(r => r.status === 'active').length,
-                sold: records.filter(r => r.status === 'sold').length,
-                total: records.length
-            };
-            document.getElementById('statActive').innerText = stats.active;
-            document.getElementById('statDone').innerText = stats.sold;
-            document.getElementById('statTotal').innerText = stats.total;
+            // 統計
+            document.getElementById('statActive').innerText = records.filter(r => r.status === 'active').length;
+            document.getElementById('statDone').innerText = records.filter(r => r.status === 'sold').length;
+            document.getElementById('statTotal').innerText = records.length;
 
             const listEl = document.getElementById('itemList');
             const emptyEl = document.getElementById('emptyState');
@@ -452,7 +436,7 @@
             lucide.createIcons();
         }
 
-        // --- 建立卡片 DOM ---
+        // --- 建立卡片 ---
         function createItemCard(item) {
             const div = document.createElement('div');
             div.className = "sticker-card flex flex-col p-3 animate-fade";
@@ -506,7 +490,7 @@
             return div;
         }
 
-        // --- UI 控制函式 ---
+        // --- UI 控制 ---
         function toggleModal(show) {
             const modal = document.getElementById('postModal');
             modal.style.display = show ? 'flex' : 'none';
@@ -525,13 +509,13 @@
 
         async function setCategory(cat) {
             currentCategory = cat;
-            renderCategoryTabs();
+            renderCategoryTabs();          // 更新按鈕樣式
             await renderList();
         }
 
         async function setStatus(status) {
             currentStatus = status;
-            renderStatusFilters();
+            renderStatusFilters();        // 更新按鈕樣式
             await renderList();
         }
 
@@ -563,7 +547,7 @@
             `).join('');
         }
 
-        // --- 圖片上傳處理 ---
+        // --- 圖片上傳 ---
         document.getElementById('fileInput').onchange = function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -579,7 +563,7 @@
             }
         };
 
-        // --- 表單送出 ---
+        // --- 表單提交 ---
         document.getElementById('postForm').onsubmit = async function(e) {
             e.preventDefault();
             
@@ -589,7 +573,6 @@
             const nickname = document.getElementById('nickname').value.trim();
             const category = document.getElementById('category').value;
 
-            // 基本驗證
             if (!title || !price || !description || !nickname) {
                 alert("請填寫所有必填欄位（名稱、價格、描述、暱稱）");
                 return;
@@ -600,12 +583,8 @@
                 createdAt: new Date().toISOString(),
                 status: "active",
                 star_status: "unstarred",
-                title: title,
-                description: description,
-                category: category,
-                price: price,
-                nickname: nickname,
-                imageUrl: base64Image,  // 圖片僅存於 localStorage，不會同步到 Sheet
+                title, description, category, price, nickname,
+                imageUrl: base64Image,
                 likes: 0
             };
             
@@ -613,7 +592,7 @@
             toggleModal(false);
         };
 
-        // --- AI 相關功能 ---
+        // --- AI 功能 ---
         async function askAI(userPrompt) {
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: "POST",
@@ -649,8 +628,10 @@
             }
         }
 
-        // --- 初始化 ---
+        // --- 初始化（恢復分類/狀態按鈕渲染） ---
         window.onload = async () => {
+            renderCategoryTabs();
+            renderStatusFilters();
             await renderList();
             lucide.createIcons();
         };
