@@ -116,6 +116,11 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
+                    <!-- AI 摘要按鈕 (新增) -->
+                    <button onclick="handleAISummary()" id="aiBtn" class="flex items-center gap-2 bg-zinc-800 text-zinc-100 px-4 py-2 rounded-full font-medium hover:bg-zinc-700 transition-colors active:scale-95 border border-zinc-700 disabled:opacity-50">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span id="aiBtnText">AI 摘要</span>
+                    </button>
                     <button onclick="toggleModal(true)" class="btn-retro btn-primary flex items-center gap-2">
                         <i data-lucide="plus" class="w-5 h-5"></i>
                         <span>發佈物品</span>
@@ -266,94 +271,138 @@
         let searchQuery = "";
         let base64Image = "";
 
-        // --- 安全的資料讀取 (自動過濾無效記錄) ---
-        function loadData() {
+        // --- 正規化從 Sheet 回來的記錄 (支援大小寫不一致) ---
+        function normalizeRecord(record) {
+            return {
+                id: record.id || record.ID || "",
+                createdAt: record.createdAt || record.CreatedAt || "",
+                status: record.status || record.Status || "active",
+                star_status: record.star_status || record.Star_status || record.STAR_STATUS || "unstarred",
+                title: record.title || record.Title || "",
+                description: record.description || record.Description || "",
+                category: record.category || record.Category || "其他",
+                price: record.price || record.Price || "",
+                nickname: record.nickname || record.Nickname || "",
+                imageUrl: record.imageUrl || record.ImageUrl || record.IMAGEURL || "",
+                likes: Number(record.likes !== undefined ? record.likes : (record.Likes || 0))
+            };
+        }
+
+        // --- 從 Sheet GET 所有記錄 ---
+        async function fetchRecordsFromSheet() {
+            if (APPS_SCRIPT_URL.includes("PASTE")) return null;
             try {
-                const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-                if (!raw) return [];
-                const data = JSON.parse(raw);
-                if (!Array.isArray(data)) return [];
-                // 只保留 title 為字串的有效記錄
-                return data.filter(item => item && typeof item.title === 'string');
+                const res = await fetch(APPS_SCRIPT_URL);
+                const data = await res.json();
+                return Array.isArray(data.records) ? data.records.map(normalizeRecord) : null;
+            } catch (e) {
+                console.warn("從 Sheet 讀取失敗", e);
+                return null;
+            }
+        }
+
+        // --- 安全的資料讀取 (優先從 Sheet，以 localStorage 為 fallback) ---
+        async function loadData() {
+            const remote = await fetchRecordsFromSheet();
+            if (remote) {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(remote));
+                return remote;
+            }
+            // 無網路或 API 未設定時，讀取本地備份
+            const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+            try {
+                const parsed = data ? JSON.parse(data) : [];
+                return Array.isArray(parsed) ? parsed.filter(item => item && typeof item.title === 'string') : [];
             } catch (e) {
                 return [];
             }
         }
 
-        // --- 寫入 localStorage (不觸發同步) ---
-        function persistToLocalStorage(records) {
+        // --- 寫入 localStorage 並重新渲染 (不觸發 GET) ---
+        async function persistToLocalStorage(records) {
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
-            renderList();
+            await renderList(records);
         }
 
         // --- 新增記錄 (儲存含圖片的完整記錄，但同步時僅傳送純文字) ---
-        function addRecord(newRecord) {
-            const records = loadData();
+        async function addRecord(newRecord) {
+            const records = await loadData();
             records.unshift(newRecord);
-            persistToLocalStorage(records);
-            
-            // 同步時去除 base64 圖片，避免超出儲存格限制
-            const syncRecord = { ...newRecord };
-            delete syncRecord.imageUrl;
-            syncToSheet({ action: "create", record: syncRecord });
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
+            syncToSheet({ action: "create", record: newRecord });
+            await renderList(records);
         }
 
         // 保留舊函數名稱相容性
-        function saveData(newRecord) {
-            addRecord(newRecord);
+        async function saveData(newRecord) {
+            await addRecord(newRecord);
         }
 
         // --- 更新記錄欄位 ---
-        function updateRecordField(id, changes) {
-            const records = loadData();
+        async function updateRecordField(id, changes) {
+            const records = await loadData();
             const item = records.find(r => r.id === id);
             if (!item) return;
             Object.assign(item, changes);
-            persistToLocalStorage(records);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
             
-            // 同步時同樣去除圖片欄位
+            // 同步時去除圖片欄位
             const syncChanges = { ...changes };
             delete syncChanges.imageUrl;
             syncToSheet({ action: "update", id: id, changes: syncChanges });
+            await renderList(records);
         }
 
         // --- 刪除記錄 ---
-        function deleteRecordById(id) {
-            const records = loadData();
+        async function deleteRecordById(id) {
+            const records = await loadData();
             const filtered = records.filter(r => r.id !== id);
-            persistToLocalStorage(filtered);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
             syncToSheet({ action: "delete", id: id });
+            await renderList(filtered);
         }
 
-        function deleteRecord(id, event) {
+        async function deleteRecord(id, event) {
             if (event) event.preventDefault();
             if (!confirm("確定要刪除這筆寶物嗎？")) return;
-            deleteRecordById(id);
+            await deleteRecordById(id);
         }
 
         // --- 切換星號狀態 ---
-        function toggleStar(id, event) {
+        async function toggleStar(id, event) {
             if (event) event.preventDefault();
-            const records = loadData();
+            const records = await loadData();
             const item = records.find(r => r.id === id);
             if (!item) return;
             const newStarStatus = item.star_status === 'starred' ? 'unstarred' : 'starred';
-            updateRecordField(id, { star_status: newStarStatus });
+            await updateRecordField(id, { star_status: newStarStatus });
         }
 
         // --- 切換物品狀態 (待售/已出售) ---
-        function toggleItemStatus(id, event) {
+        async function toggleItemStatus(id, event) {
             if (event) event.preventDefault();
-            const records = loadData();
+            const records = await loadData();
             const item = records.find(r => r.id === id);
             if (!item) return;
             const newStatus = item.status === 'active' ? 'sold' : 'active';
-            updateRecordField(id, { status: newStatus });
+            await updateRecordField(id, { status: newStatus });
         }
 
-        // --- 渲染物品清單 (防禦性處理 title 為空的情形) ---
-        function renderList() {
-            const records = loadData();
+        // --- 新增：按讚 (likes) ---
+        async function handleLike(id) {
+            const records = await loadData();
+            const index = records.findIndex(r => r.id === id);
+            if (index !== -1) {
+                records[index].likes = (records[index].likes || 0) + 1;
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
+                syncToSheet({ action: "update", id: id, changes: { likes: records[index].likes } });
+                await renderList(records);
+            }
+        }
+
+        // --- 渲染物品清單 (支援直接傳入 records 避免重新 GET) ---
+        async function renderList(recordsOverride) {
+            const records = recordsOverride || await loadData();
             
             let filtered = records.filter(item => {
                 const title = item.title || '';
@@ -439,6 +488,9 @@
                                 <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${item.nickname}" class="w-full h-full">
                             </div>
                             <span class="text-[10px] font-bold font-hand">${item.nickname}</span>
+                            <button onclick="handleLike('${item.id}')" class="ml-1 p-1 hover:text-red-500 transition-colors" title="按讚">
+                                <span class="text-xs">👍 ${item.likes || 0}</span>
+                            </button>
                         </div>
                         <div class="flex items-center gap-2">
                             <button onclick="toggleItemStatus('${item.id}', event)" class="p-1 hover:text-green-600">
@@ -466,31 +518,31 @@
             }
         }
 
-        function handleSearch(val) {
+        async function handleSearch(val) {
             searchQuery = val;
-            renderList();
+            await renderList();
         }
 
-        function setCategory(cat) {
+        async function setCategory(cat) {
             currentCategory = cat;
             renderCategoryTabs();
-            renderList();
+            await renderList();
         }
 
-        function setStatus(status) {
+        async function setStatus(status) {
             currentStatus = status;
             renderStatusFilters();
-            renderList();
+            await renderList();
         }
 
-        function resetFilters() {
+        async function resetFilters() {
             currentCategory = "全部";
             currentStatus = "全部";
             searchQuery = "";
             document.getElementById('searchInput').value = "";
             renderCategoryTabs();
             renderStatusFilters();
-            renderList();
+            await renderList();
         }
 
         function renderCategoryTabs() {
@@ -528,7 +580,7 @@
         };
 
         // --- 表單送出 ---
-        document.getElementById('postForm').onsubmit = function(e) {
+        document.getElementById('postForm').onsubmit = async function(e) {
             e.preventDefault();
             
             const title = document.getElementById('title').value.trim();
@@ -553,18 +605,53 @@
                 category: category,
                 price: price,
                 nickname: nickname,
-                imageUrl: base64Image  // 圖片僅存於 localStorage，不會同步到 Sheet
+                imageUrl: base64Image,  // 圖片僅存於 localStorage，不會同步到 Sheet
+                likes: 0
             };
             
-            addRecord(record);
+            await addRecord(record);
             toggleModal(false);
         };
 
+        // --- AI 相關功能 ---
+        async function askAI(userPrompt) {
+            const res = await fetch(APPS_SCRIPT_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ action: "askAI", prompt: userPrompt })
+            });
+            const data = await res.json();
+            return data.result || data.error || "AI 冇回應";
+        }
+
+        async function handleAISummary() {
+            const btn = document.getElementById('aiBtn');
+            const text = document.getElementById('aiBtnText');
+            btn.disabled = true;
+            text.textContent = '思考中...';
+            try {
+                const records = await loadData();
+                if (records.length === 0) { 
+                    alert('未有物品資料可以摘要'); 
+                    return; 
+                }
+                const summaryInput = records.slice(0, 30).map(r =>
+                    `[${r.category}] ${r.title} - ${r.price}: ${r.description}`
+                ).join('\n');
+                const prompt = '以下是二手易嘅物品描述。請用繁體中文，用 3-5 句概括物品名稱、分類、價格區間及常見描述 patterns:\n\n' + summaryInput;
+                const result = await askAI(prompt);
+                alert(result);
+            } catch (e) {
+                alert('AI 出錯：' + e.message);
+            } finally {
+                btn.disabled = false;
+                text.textContent = 'AI 摘要';
+            }
+        }
+
         // --- 初始化 ---
-        window.onload = () => {
-            renderCategoryTabs();
-            renderStatusFilters();
-            renderList();
+        window.onload = async () => {
+            await renderList();
             lucide.createIcons();
         };
     </script>
